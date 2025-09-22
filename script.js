@@ -539,11 +539,12 @@ form.addEventListener('submit', (e) => {
   console.log('Submit attempt:', text, 'Font loaded:', !!font);
   if (text && font) {
     console.log('Sending message to server:', { text: text });
+    // Clear input immediately to prevent double submission
+    input.value = '';
     // Send message to server
     socket.emit('newMessage', { text: text });
     // Create sphere locally for immediate feedback
     createMessageSphere(text);
-    input.value = '';
   } else if (!font) {
     console.log('Font not loaded yet');
   }
