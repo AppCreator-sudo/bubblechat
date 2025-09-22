@@ -312,9 +312,9 @@ const socket = io();
 // Socket event listeners
 socket.on('newMessage', (data) => {
   console.log('🔵 Received NEW message from server:', data);
-  // Check if we already processed this message
+  // Check if we already processed this message by ID
   if (data.id && processedMessageIds.has(data.id)) {
-    console.log('⚠️ Skipping duplicate message:', data.id);
+    console.log('⚠️ Skipping duplicate message ID:', data.id);
     return;
   }
   // Mark as processed
@@ -341,7 +341,7 @@ socket.on('syncMessages', (messages) => {
 
     // Skip if already processed
     if (message.id && processedMessageIds.has(message.id)) {
-      console.log('⚠️ Skipping already processed message:', message.id);
+      console.log('⚠️ Skipping already processed message ID:', message.id);
       return;
     }
 
@@ -564,14 +564,8 @@ form.addEventListener('submit', (e) => {
     console.log('Sending message to server:', { text: text });
     // Clear input immediately to prevent double submission
     input.value = '';
-    // Generate message ID for local tracking
-    const messageId = Date.now() + Math.random();
-    // Mark as processed to prevent duplicates
-    processedMessageIds.add(messageId);
-    // Send message to server with ID
-    socket.emit('newMessage', { text: text, id: messageId });
-    // Create sphere locally for immediate feedback
-    createMessageSphere(text);
+    // Send message to server (server will broadcast back to all clients)
+    socket.emit('newMessage', { text: text });
   } else if (!font) {
     console.log('Font not loaded yet');
   }
