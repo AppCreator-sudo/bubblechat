@@ -308,24 +308,24 @@ const socket = io();
 
 // Socket event listeners
 socket.on('newMessage', (data) => {
-  console.log('Received message from another user:', data);
+  console.log('🔵 Received NEW message from server:', data);
   // Create sphere for message from other users
   createMessageSphere(data.text);
 });
 
 socket.on('userCount', (count) => {
-  console.log('User count updated:', count);
+  console.log('👥 User count updated:', count);
   // Update UI to show user count (you can add this to HTML if needed)
   updateUserCount(count);
 });
 
 socket.on('syncMessages', (messages) => {
-  console.log('Received synced messages:', messages.length, 'messages');
+  console.log('🔄 Received SYNC messages:', messages.length, 'messages');
   // Create spheres for all existing messages
   messages.forEach(message => {
     const elapsed = Date.now() - message.timestamp;
     const remainingTime = Math.max(0, 15000 - elapsed);
-    console.log('Message:', message.text, 'elapsed:', elapsed, 'remaining:', remainingTime);
+    console.log('📨 Sync message:', message.text, 'ID:', message.id, 'elapsed:', elapsed, 'remaining:', remainingTime);
     if (remainingTime > 0) {
       createMessageSphere(message.text, remainingTime);
     }
