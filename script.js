@@ -303,12 +303,24 @@ function applyTheme() {
 
 
 
+// Store processed message IDs to prevent duplicates
+const processedMessageIds = new Set();
+
 // Initialize Socket.io
 const socket = io();
 
 // Socket event listeners
 socket.on('newMessage', (data) => {
   console.log('🔵 Received NEW message from server:', data);
+  // Check if we already processed this message
+  if (data.id && processedMessageIds.has(data.id)) {
+    console.log('⚠️ Skipping duplicate message:', data.id);
+    return;
+  }
+  // Mark as processed
+  if (data.id) {
+    processedMessageIds.add(data.id);
+  }
   // Create sphere for message from other users
   createMessageSphere(data.text);
 });
@@ -321,12 +333,23 @@ socket.on('userCount', (count) => {
 
 socket.on('syncMessages', (messages) => {
   console.log('🔄 Received SYNC messages:', messages.length, 'messages');
-  // Create spheres for all existing messages
+  // Create spheres for all existing messages (only if not already processed)
   messages.forEach(message => {
     const elapsed = Date.now() - message.timestamp;
     const remainingTime = Math.max(0, 15000 - elapsed);
     console.log('📨 Sync message:', message.text, 'ID:', message.id, 'elapsed:', elapsed, 'remaining:', remainingTime);
+
+    // Skip if already processed
+    if (message.id && processedMessageIds.has(message.id)) {
+      console.log('⚠️ Skipping already processed message:', message.id);
+      return;
+    }
+
     if (remainingTime > 0) {
+      // Mark as processed
+      if (message.id) {
+        processedMessageIds.add(message.id);
+      }
       createMessageSphere(message.text, remainingTime);
     }
   });
@@ -541,8 +564,12 @@ form.addEventListener('submit', (e) => {
     console.log('Sending message to server:', { text: text });
     // Clear input immediately to prevent double submission
     input.value = '';
-    // Send message to server
-    socket.emit('newMessage', { text: text });
+    // Generate message ID for local tracking
+    const messageId = Date.now() + Math.random();
+    // Mark as processed to prevent duplicates
+    processedMessageIds.add(messageId);
+    // Send message to server with ID
+    socket.emit('newMessage', { text: text, id: messageId });
     // Create sphere locally for immediate feedback
     createMessageSphere(text);
   } else if (!font) {
