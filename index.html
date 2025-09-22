@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dreams</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <link rel="stylesheet" href="style.css">
+  <!-- Font Awesome -->
+   
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- GSAP -->
+  <script src="js/gsap.min.js"></script>
+  <!-- Three.js -->
+  <script src="js/three.min.js"></script>
+  <!-- OrbitControls -->
+  <script src="js/OrbitControls.js"></script>
+  <!-- dat.GUI -->
+  <script src="js/dat.gui.min.js"></script>
+</head>
+<body>
+
+  <!-- ТВОЙ HTML-КОД БЕЗ ИЗМЕНЕНИЙ -->
+
+  <h1 class="main-txt">Dreams</h1>
+
+  <canvas class="webgl" id="webgl"></canvas>
+
+  <form id="message-form">
+    <input type="text" id="message-input" maxlength="40" placeholder="Enter message (up to 40 characters)" autocomplete="off">
+    <button type="submit">Send</button>
+  </form>
+
+  <!-- КОНЕЦ ТВОЕГО HTML -->
+
+  <!-- Socket.io client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Подключаем твой JS -->
+  <script src="script.js"></script>
+</body>
+</html>
