@@ -70,11 +70,14 @@ io.on('connection', (socket) => {
   socket.on('newMessage', (data) => {
     console.log('New message received:', data);
 
-    // Add timestamp to message for lifetime tracking
+    // Generate unique server-side ID
+    const serverMessageId = Date.now() + Math.random();
+
+    // Add timestamp and server-generated ID to message for lifetime tracking
     const messageWithTimestamp = {
       ...data,
       timestamp: Date.now(),
-      id: Date.now() + Math.random() // Unique ID
+      id: serverMessageId // Server-generated unique ID
     };
 
     // Add message to current messages array
@@ -94,8 +97,8 @@ io.on('connection', (socket) => {
     saveMessages();
     console.log('Messages saved to file, active messages:', currentMessages.length);
 
-    // Broadcast the message to all other clients
-    socket.broadcast.emit('newMessage', data);
+    // Broadcast the message to all clients (including sender for consistency)
+    io.emit('newMessage', messageWithTimestamp);
   });
 
 
