@@ -306,8 +306,12 @@ function applyTheme() {
 // Store processed message IDs to prevent duplicates
 const processedMessageIds = new Set();
 
-// Initialize Socket.io with explicit URL
-const socket = io(window.location.origin);
+// Initialize Socket.io with root URL (TimeWeb Cloud uses standard ports)
+const socket = io('/', {
+  transports: ['websocket', 'polling'],
+  timeout: 5000,
+  forceNew: true
+});
 
 // Socket connection logging
 socket.on('connect', () => {
