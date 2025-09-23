@@ -10,7 +10,7 @@ function createMessageSphere(text, lifetime = 15000) {
     let lines = [];
     for (let i = 0; i < limitedText.length; i += 10) {
       let line = limitedText.substring(i, i + 10);
-      if (i + 10 < limitedText.length) {
+      if (i + 10 < limitedText.length && !line.endsWith(' ')) {
         line += '-';
       }
       lines.push(line);
