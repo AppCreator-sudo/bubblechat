@@ -309,6 +309,23 @@ const processedMessageIds = new Set();
 // Initialize Socket.io
 const socket = io();
 
+// Socket connection logging
+socket.on('connect', () => {
+  console.log('🔗 Socket.IO connected:', socket.id);
+});
+
+socket.on('disconnect', (reason) => {
+  console.log('🔌 Socket.IO disconnected:', reason);
+});
+
+socket.on('connect_error', (error) => {
+  console.error('❌ Socket.IO connection error:', error);
+});
+
+socket.on('connect_timeout', (timeout) => {
+  console.warn('⏰ Socket.IO connection timeout:', timeout);
+});
+
 // Socket event listeners
 socket.on('newMessage', (data) => {
   console.log('🔵 Received NEW message from server:', data);
