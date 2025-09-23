@@ -698,10 +698,6 @@ function initLoadingAnimation() {
 const form = document.getElementById('message-form');
 const input = document.getElementById('message-input');
 
-// Reply system
-let replyMode = false;
-let replyTarget = null;
-
 // Cooldown system
 let lastMessageTime = 0;
 const COOLDOWN_TIME = 10000; // 10 seconds
@@ -746,22 +742,14 @@ function canSendMessage() {
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = input.value.trim();
-  console.log('Submit attempt:', text, 'Font loaded:', !!font, 'Can send:', canSendMessage(), 'Reply mode:', replyMode);
+  console.log('Submit attempt:', text, 'Font loaded:', !!font, 'Can send:', canSendMessage());
 
   if (text && font && canSendMessage()) {
-    // If in reply mode, add "answer" prefix and exit reply mode
-    let messageText = text;
-    if (replyMode) {
-      messageText = `answer ${text}`;
-      exitReplyMode();
-      console.log('📤 Sent reply message');
-    }
-
-    console.log('Sending message to server:', { text: messageText });
+    console.log('Sending message to server:', { text: text });
     // Clear input immediately to prevent double submission
     input.value = '';
     // Send message to server (server will broadcast back to all clients)
-    socket.emit('newMessage', { text: messageText });
+    socket.emit('newMessage', { text: text });
     startCooldown();
   } else if (!canSendMessage()) {
     console.log('Message blocked by cooldown');
@@ -787,44 +775,15 @@ setTimeout(() => {
 }, (revolutionDuration + 1) * 1000);
 
 // Mouse event handlers
-let clickCount = 0;
-let clickTimer = null;
-
 function onMouseDown(event) {
   if (!loadingComplete) return;
-
-  clickCount++;
-  if (clickCount === 1) {
-    // Start single click timer
-    clickTimer = setTimeout(() => {
-      // Single click - start panning
-      isPanning = true;
-      lastMouseX = event.clientX;
-      lastMouseY = event.clientY;
-      clickCount = 0;
-    }, 300); // 300ms for double-click detection
-  } else if (clickCount === 2) {
-    // Double click detected
-    clearTimeout(clickTimer);
-    clickCount = 0;
-    handleDoubleClick(event);
-  }
+  isPanning = true;
+  lastMouseX = event.clientX;
+  lastMouseY = event.clientY;
 }
 
 function onMouseUp(event) {
   isPanning = false;
-
-  // Check for empty space click to exit reply mode
-  // But don't exit if clicking on form elements
-  const target = event.target;
-  const isFormElement = target.tagName === 'INPUT' ||
-                       target.tagName === 'BUTTON' ||
-                       target.tagName === 'TEXTAREA' ||
-                       target.closest('form');
-
-  if (replyMode && !isFormElement) {
-    handleEmptySpaceClick(event);
-  }
 }
 
 function onMouseMove(event) {
@@ -853,43 +812,7 @@ function onMouseMove(event) {
     return;
   }
 
-  // Handle sphere interaction (only when not panning)
-  if (!isPanning) {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(spheres);
-
-    if (intersects.length > 0) {
-      const hoveredSphere = intersects[0].object;
-
-      // Only apply force to message spheres (not decorative ones)
-      if (hoveredSphere.userData.originalPosition?.isDecorative !== false) {
-        const existingForce = forces.get(hoveredSphere.uuid) || new THREE.Vector3();
-        const newForce = new THREE.Vector3();
-
-        // Calculate force direction from sphere center to mouse intersection point
-        newForce.subVectors(intersects[0].point, hoveredSphere.position).normalize();
-
-        // Add small force increment instead of setting absolute value
-        newForce.multiplyScalar(0.05); // Much smaller force increment
-        existingForce.add(newForce);
-
-        // Clamp maximum force to prevent excessive acceleration
-        const maxForce = 0.5;
-        if (existingForce.length() > maxForce) {
-          existingForce.normalize().multiplyScalar(maxForce);
-        }
-
-        forces.set(hoveredSphere.uuid, existingForce);
-      }
-    }
-  }
-}
-
-// Handle double-click for replying to messages
-function handleDoubleClick(event) {
+  // Handle sphere interaction
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
@@ -897,81 +820,13 @@ function handleDoubleClick(event) {
   const intersects = raycaster.intersectObjects(spheres);
 
   if (intersects.length > 0) {
-    const clickedSphere = intersects[0].object;
-
-    // Only allow replying to message spheres (not decorative ones)
-    if (clickedSphere.userData.originalPosition?.isDecorative !== false) {
-      console.log('🎯 Double-clicked on message sphere, entering reply mode...');
-      enterReplyMode(clickedSphere);
-    }
-  }
-}
-
-// Enter reply mode
-function enterReplyMode(targetSphere) {
-  replyMode = true;
-  replyTarget = targetSphere;
-
-  // Extract original text from the sphere
-  let originalText = '';
-  if (targetSphere.children.length > 0 && targetSphere.children[0].isGroup) {
-    const textGroup = targetSphere.children[0];
-    textGroup.children.forEach(textMesh => {
-      if (textMesh.geometry && textMesh.geometry.parameters) {
-        originalText += textMesh.geometry.parameters.text || '';
-      }
-    });
-  }
-
-  // Truncate original text for placeholder
-  const truncatedText = originalText.length > 20 ? originalText.substring(0, 20) + '...' : originalText;
-
-  // Update input placeholder
-  input.placeholder = `Reply to "${truncatedText}"`;
-  input.focus();
-
-  // Highlight target sphere
-  const originalMaterial = targetSphere.material;
-  targetSphere.material = new THREE.MeshLambertMaterial({
-    color: 0xffd700, // Gold color to indicate reply target
-    emissive: 0x444400
-  });
-
-  // Store original material for restoration
-  targetSphere.userData.originalMaterial = originalMaterial;
-
-  console.log('📝 Entered reply mode for:', originalText);
-}
-
-// Exit reply mode
-function exitReplyMode() {
-  if (replyMode && replyTarget) {
-    // Restore original material
-    if (replyTarget.userData.originalMaterial) {
-      replyTarget.material = replyTarget.userData.originalMaterial;
-    }
-
-    console.log('❌ Exited reply mode');
-  }
-
-  replyMode = false;
-  replyTarget = null;
-  input.placeholder = "Enter message (up to 40 characters)";
-}
-
-// Handle click on empty space to exit reply mode
-function handleEmptySpaceClick(event) {
-  if (!replyMode) return;
-
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(spheres);
-
-  // If no spheres were clicked (empty space), exit reply mode
-  if (intersects.length === 0) {
-    exitReplyMode();
+    const hoveredSphere = intersects[0].object;
+    const force = new THREE.Vector3();
+    force
+      .subVectors(intersects[0].point, hoveredSphere.position)
+      .normalize()
+      .multiplyScalar(0.2);
+    forces.set(hoveredSphere.uuid, force);
   }
 }
 
@@ -1013,18 +868,14 @@ function animate() {
       const breathingY = Math.sin(time + offset) * breathingAmplitude;
       const breathingZ = Math.cos(time + offset) * breathingAmplitude * 0.5;
 
-      // Apply forces and update positions (only for message spheres)
-      if (sphere.userData.originalPosition?.isDecorative !== false) {
-        const force = forces.get(sphere.uuid);
-        if (force) {
-          // Apply force with damping
-          sphere.position.add(force);
-          force.multiplyScalar(0.92); // Slightly more aggressive damping
+      // Apply forces and update positions
+      const force = forces.get(sphere.uuid);
+      if (force) {
+        sphere.position.add(force);
+        force.multiplyScalar(0.95); // Original damping
 
-          // Remove very small forces to prevent jitter
-          if (force.length() < 0.005) {
-            forces.delete(sphere.uuid);
-          }
+        if (force.length() < 0.01) {
+          forces.delete(sphere.uuid);
         }
       }
 
