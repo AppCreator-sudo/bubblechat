@@ -11,7 +11,8 @@ const io = socketIo(server, {
     origin: "*",
     methods: ["GET", "POST"]
   },
-  path: '/socket.io'
+  path: '/socket.io',
+  allowEIO3: true
 });
 
 const PORT = process.env.PORT || 3000;
@@ -125,7 +126,7 @@ io.on('connection', (socket) => {
 loadMessages();
 console.log('Server started with', currentMessages.length, 'messages loaded');
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Open http://localhost:${PORT} in your browser`);
 });
