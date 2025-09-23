@@ -376,8 +376,14 @@ function applyTheme() {
 // Store processed message IDs to prevent duplicates
 const processedMessageIds = new Set();
 
-// Initialize Socket.io with VDS server IP
-const socket = io('http://83.217.220.149:3000', {
+// Auto-detect environment: localhost for development, VDS IP for production
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const serverURL = isLocalhost ? 'http://localhost:3000' : 'http://83.217.220.149:3000';
+
+console.log('🌐 Environment detected:', isLocalhost ? 'LOCALHOST' : 'VDS PRODUCTION');
+console.log('🔗 Connecting to server:', serverURL);
+
+const socket = io(serverURL, {
   transports: ['polling'], // Only polling transport
   timeout: 10000,
   forceNew: true,
