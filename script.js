@@ -307,8 +307,8 @@ function applyTheme() {
 // Store processed message IDs to prevent duplicates
 const processedMessageIds = new Set();
 
-// Initialize Socket.io with full origin URL for TimeWeb Cloud
-const socket = io(window.location.origin, {
+// Initialize Socket.io with full hosting URL for TimeWeb Cloud
+const socket = io('https://appcreator-sudo-bubblechat-2ed8.twc1.net', {
   transports: ['polling'], // Only polling transport
   timeout: 10000,
   forceNew: true,
