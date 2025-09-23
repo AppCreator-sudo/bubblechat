@@ -17,5 +17,8 @@
   },
   "keywords": ["three.js", "socket.io", "multiplayer", "3d", "visualization"],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": "16"
+  }
 }
