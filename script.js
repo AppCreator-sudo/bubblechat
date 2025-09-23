@@ -40,10 +40,79 @@ function createMessageSphere(text, lifetime = 15000) {
     });
     const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
 
-    // Final position near the center of initial spheres (reduced range from 20 to 5)
-    const finalX = (Math.random() - 0.5) * 5;
-    const finalY = (Math.random() - 0.5) * 5;
-    const finalZ = (Math.random() - 0.5) * 5;
+    // Smart positioning: fill empty spaces around decorative spheres first, then expand outward
+    const decorativeSpheres = spheres.filter(s => !s.userData.originalPosition?.isDecorative);
+    const messageSpheres = spheres.filter(s => s.userData.originalPosition?.isDecorative);
+
+    // Try to find empty spaces around decorative spheres first (3D search)
+    let finalX, finalY, foundEmptySpace = false;
+    const attempts = 30; // More attempts for better distribution
+
+    for (let attempt = 0; attempt < attempts && !foundEmptySpace; attempt++) {
+      // Generate random position around the decorative spheres cluster
+      const angle = Math.random() * Math.PI * 2;
+      const height = (Math.random() - 0.5) * 6; // Height range: -3 to +3
+      const distance = 3 + Math.random() * 4; // Distance from center: 3-7 units
+
+      const testX = Math.cos(angle) * distance;
+      const testY = height;
+      const testZ = Math.sin(angle) * distance;
+
+      // Check if this position is too close to existing message spheres (3D distance)
+      let tooClose = false;
+      for (const msgSphere of messageSpheres) {
+        const dx = testX - msgSphere.position.x;
+        const dy = testY - msgSphere.position.y;
+        const dz = testZ - msgSphere.position.z;
+        const distance3D = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (distance3D < 2.0) { // Minimum 3D distance between message spheres
+          tooClose = true;
+          break;
+        }
+      }
+
+      // Also check distance from decorative spheres (should be outside their cluster)
+      if (!tooClose) {
+        for (const decoSphere of decorativeSpheres) {
+          const dx = testX - decoSphere.position.x;
+          const dy = testY - decoSphere.position.y;
+          const dz = testZ - decoSphere.position.z;
+          const distance3D = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          const minDistance = (decoSphere.userData.radius || 0.5) + 1.0; // Decorative radius + buffer
+          if (distance3D < minDistance) {
+            tooClose = true;
+            break;
+          }
+        }
+      }
+
+      if (!tooClose) {
+        finalX = testX;
+        finalY = testY;
+        foundEmptySpace = true;
+      }
+    }
+
+    // If no empty space found, use expanding sphere logic (3D)
+    if (!foundEmptySpace) {
+      const angle = Math.random() * Math.PI * 2;
+      const verticalAngle = (Math.random() - 0.5) * Math.PI; // -90° to +90°
+      const baseDistance = 6; // Start further out
+      const spreadFactor = 0.4; // How much each new sphere increases distance
+      const distance = baseDistance + (messageSpheres.length * spreadFactor) + Math.random() * 3;
+
+      finalX = Math.cos(angle) * Math.cos(verticalAngle) * distance;
+      finalY = Math.sin(verticalAngle) * distance;
+      finalZ = Math.sin(angle) * Math.cos(verticalAngle) * distance;
+    }
+
+    const heightVariation = (Math.random() - 0.5) * 3; // Smaller height variation: -1.5 to +1.5
+    finalY = Math.max(-4, Math.min(4, finalY + heightVariation)); // Clamp Y between -4 and +4
+
+    // Create "water surface" effect - spheres appear at similar depth with small variations
+    const baseDepth = 2; // Base depth for all message spheres
+    const depthVariation = (Math.random() - 0.5) * 2; // Small depth variation: -1 to +1
+    const finalZ = baseDepth + depthVariation; // Consistent depth with small variations
 
     // Start below screen
     sphere.position.set(finalX, -25, finalZ);
@@ -307,9 +376,9 @@ function applyTheme() {
 // Store processed message IDs to prevent duplicates
 const processedMessageIds = new Set();
 
-// Initialize Socket.io with VDS server IP
-const socket = io('http://83.217.220.149:3000', {
-  transports: ['polling'], // polling transport for VDS
+// Initialize Socket.io with localhost for local testing
+const socket = io('http://localhost:3000', {
+  transports: ['polling'], // polling transport
   timeout: 10000,
   forceNew: true,
   path: '/socket.io',
@@ -574,153 +643,76 @@ function initLoadingAnimation() {
   });
 }
 
-// Message form
+// Message form with cooldown timer
 const form = document.getElementById('message-form');
 const input = document.getElementById('message-input');
+
+// Cooldown system
+let lastMessageTime = 0;
+const COOLDOWN_TIME = 10000; // 10 seconds
+let cooldownTimer = null;
 
 // Disable input until font loads
 input.disabled = true;
 input.placeholder = "Font loading...";
 
+function startCooldown() {
+  const now = Date.now();
+  lastMessageTime = now;
+
+  // Disable form
+  input.disabled = true;
+  form.querySelector('button').disabled = true;
+
+  // Start countdown
+  let remainingTime = COOLDOWN_TIME / 1000;
+  input.placeholder = `Wait ${remainingTime}s before next message...`;
+
+  cooldownTimer = setInterval(() => {
+    remainingTime--;
+    if (remainingTime > 0) {
+      input.placeholder = `Wait ${remainingTime}s before next message...`;
+    } else {
+      // Enable form
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+      input.disabled = false;
+      form.querySelector('button').disabled = false;
+      input.placeholder = "Enter message (up to 40 characters)";
+    }
+  }, 1000);
+}
+
+function canSendMessage() {
+  const now = Date.now();
+  return (now - lastMessageTime) >= COOLDOWN_TIME;
+}
+
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = input.value.trim();
-  console.log('Submit attempt:', text, 'Font loaded:', !!font);
-  if (text && font) {
+  console.log('Submit attempt:', text, 'Font loaded:', !!font, 'Can send:', canSendMessage());
+
+  if (text && font && canSendMessage()) {
     console.log('Sending message to server:', { text: text });
     // Clear input immediately to prevent double submission
     input.value = '';
     // Send message to server (server will broadcast back to all clients)
     socket.emit('newMessage', { text: text });
+    startCooldown();
+  } else if (!canSendMessage()) {
+    console.log('Message blocked by cooldown');
+    input.placeholder = 'Please wait before sending another message...';
+    setTimeout(() => {
+      const remaining = Math.ceil((COOLDOWN_TIME - (Date.now() - lastMessageTime)) / 1000);
+      input.placeholder = `Wait ${remaining}s before next message...`;
+    }, 500);
   } else if (!font) {
     console.log('Font not loaded yet');
   }
 });
 
-function createMessageSphere(text, lifetime = 15000) {
-  try {
-    console.log('Creating sphere for text:', text, 'lifetime:', lifetime);
-    // Limit text to 40 characters
-    const limitedText = text.substring(0, 40);
-    console.log('Limited text:', limitedText);
 
-    // Pre-calculate lines: split text into lines of 10 characters each, max 4 lines, add hyphen for continuation
-    let lines = [];
-    for (let i = 0; i < limitedText.length; i += 10) {
-      let line = limitedText.substring(i, i + 10);
-      if (i + 10 < limitedText.length) {
-        line += '-';
-      }
-      lines.push(line);
-    }
-    if (lines.length > 4) {
-      lines.splice(4);
-      // Remove hyphen from the last line if truncated
-      if (lines.length > 0 && lines[lines.length - 1].endsWith('-')) {
-        lines[lines.length - 1] = lines[lines.length - 1].slice(0, -1);
-      }
-    }
-    console.log('Lines:', lines);
-
-    // Calculate sphere radius based on text length, adjusted for number of lines
-    let radius = 0.5 + (limitedText.length / 40) * 1.5;
-    // Reduce radius for multi-line text to prevent large spheres
-    radius *= (1 - (lines.length - 1) * 0.1);
-    console.log('Radius:', radius);
-
-    // Create sphere with current theme colors
-    const theme = themes[currentTheme];
-    const sphereGeometry = new THREE.SphereGeometry(radius, 32, 32);
-    const sphereMaterial = new THREE.MeshLambertMaterial({
-      color: theme.sphereColor,
-      emissive: theme.emissive
-    });
-    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-
-    // Final position near the center of initial spheres (reduced range from 20 to 5)
-    const finalX = (Math.random() - 0.5) * 5;
-    const finalY = (Math.random() - 0.5) * 5;
-    const finalZ = (Math.random() - 0.5) * 5;
-
-    // Start below screen
-    sphere.position.set(finalX, -25, finalZ);
-    sphere.userData = { originalPosition: { x: finalX, y: finalY, z: finalZ }, radius };
-
-    sphere.castShadow = true;
-    sphere.receiveShadow = true;
-
-    // Scale factor for text size based on number of lines
-    let scaleFactor = 1;
-    if (lines.length === 2) scaleFactor = 0.85;
-    else if (lines.length >= 3) scaleFactor = 0.75;
-
-    // Create group to hold all text lines
-    const textGroup = new THREE.Group();
-    textGroup.userData = { originalPosition: new THREE.Vector3(0, 0, radius) };
-
-    // Create text geometry for each line
-    for (let i = 0; i < lines.length; i++) {
-      try {
-        const line = lines[i];
-        console.log('Creating text geometry for line:', line);
-
-        const textGeometry = new THREE.TextGeometry(line, {
-          font: font,
-          size: radius * 0.2 * scaleFactor, // Scaled text size
-          height: 0.05,
-          curveSegments: 8, // Reduced for performance
-          bevelEnabled: false
-        });
-        // Black text material
-        const textMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
-        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-
-        // Center text horizontally
-        textGeometry.computeBoundingBox();
-        if (!textGeometry.boundingBox) {
-          console.error('No bounding box for text geometry');
-          continue;
-        }
-        const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
-        console.log('Setting position for line', i, 'textWidth:', textWidth);
-        // Adjusted vertical spacing between lines
-        textMesh.position.set(-textWidth / 2, (lines.length - 1 - i) * (radius * 0.2), 0);
-
-        textGroup.add(textMesh);
-      } catch (error) {
-        console.error('Error creating text for line', i, ':', error);
-      }
-    }
-
-    sphere.add(textGroup);
-    scene.add(sphere);
-    spheres.push(sphere);
-    console.log('Sphere created and added to scene');
-
-    // Animate appearance like original
-    gsap.to(sphere.position, {
-      duration: 2,
-      y: finalY,
-      ease: "power1.out",
-      onUpdate: function() {
-        const progress = this.progress();
-        sphere.position.z = finalZ + Math.sin(progress * Math.PI) * 4;
-      }
-    });
-
-    // Remove sphere after lifetime expires to prevent performance issues
-    setTimeout(() => {
-      console.log('Removing sphere after lifetime:', lifetime);
-      scene.remove(sphere);
-      const index = spheres.indexOf(sphere);
-      if (index > -1) {
-        spheres.splice(index, 1);
-      }
-    }, lifetime);
-  } catch (error) {
-    console.error('Error creating message sphere:', error);
-  }
-}
 
 // Call loading animation when page loads
 window.addEventListener("load", initLoadingAnimation);
