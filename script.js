@@ -698,6 +698,10 @@ function initLoadingAnimation() {
 const form = document.getElementById('message-form');
 const input = document.getElementById('message-input');
 
+// Reply system
+let replyMode = false;
+let replyTarget = null;
+
 // Cooldown system
 let lastMessageTime = 0;
 const COOLDOWN_TIME = 10000; // 10 seconds
@@ -742,14 +746,22 @@ function canSendMessage() {
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = input.value.trim();
-  console.log('Submit attempt:', text, 'Font loaded:', !!font, 'Can send:', canSendMessage());
+  console.log('Submit attempt:', text, 'Font loaded:', !!font, 'Can send:', canSendMessage(), 'Reply mode:', replyMode);
 
   if (text && font && canSendMessage()) {
-    console.log('Sending message to server:', { text: text });
+    // If in reply mode, add "answer" prefix and exit reply mode
+    let messageText = text;
+    if (replyMode) {
+      messageText = `answer ${text}`;
+      exitReplyMode();
+      console.log('📤 Sent reply message');
+    }
+
+    console.log('Sending message to server:', { text: messageText });
     // Clear input immediately to prevent double submission
     input.value = '';
     // Send message to server (server will broadcast back to all clients)
-    socket.emit('newMessage', { text: text });
+    socket.emit('newMessage', { text: messageText });
     startCooldown();
   } else if (!canSendMessage()) {
     console.log('Message blocked by cooldown');
@@ -775,15 +787,37 @@ setTimeout(() => {
 }, (revolutionDuration + 1) * 1000);
 
 // Mouse event handlers
+let clickCount = 0;
+let clickTimer = null;
+
 function onMouseDown(event) {
   if (!loadingComplete) return;
-  isPanning = true;
-  lastMouseX = event.clientX;
-  lastMouseY = event.clientY;
+
+  clickCount++;
+  if (clickCount === 1) {
+    // Start single click timer
+    clickTimer = setTimeout(() => {
+      // Single click - start panning
+      isPanning = true;
+      lastMouseX = event.clientX;
+      lastMouseY = event.clientY;
+      clickCount = 0;
+    }, 300); // 300ms for double-click detection
+  } else if (clickCount === 2) {
+    // Double click detected
+    clearTimeout(clickTimer);
+    clickCount = 0;
+    handleDoubleClick(event);
+  }
 }
 
 function onMouseUp(event) {
   isPanning = false;
+
+  // Check for empty space click to exit reply mode
+  if (replyMode) {
+    handleEmptySpaceClick(event);
+  }
 }
 
 function onMouseMove(event) {
@@ -827,6 +861,93 @@ function onMouseMove(event) {
       .normalize()
       .multiplyScalar(0.2);
     forces.set(hoveredSphere.uuid, force);
+  }
+}
+
+// Handle double-click for replying to messages
+function handleDoubleClick(event) {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(spheres);
+
+  if (intersects.length > 0) {
+    const clickedSphere = intersects[0].object;
+
+    // Only allow replying to message spheres (not decorative ones)
+    if (clickedSphere.userData.originalPosition?.isDecorative !== false) {
+      console.log('🎯 Double-clicked on message sphere, entering reply mode...');
+      enterReplyMode(clickedSphere);
+    }
+  }
+}
+
+// Enter reply mode
+function enterReplyMode(targetSphere) {
+  replyMode = true;
+  replyTarget = targetSphere;
+
+  // Extract original text from the sphere
+  let originalText = '';
+  if (targetSphere.children.length > 0 && targetSphere.children[0].isGroup) {
+    const textGroup = targetSphere.children[0];
+    textGroup.children.forEach(textMesh => {
+      if (textMesh.geometry && textMesh.geometry.parameters) {
+        originalText += textMesh.geometry.parameters.text || '';
+      }
+    });
+  }
+
+  // Truncate original text for placeholder
+  const truncatedText = originalText.length > 20 ? originalText.substring(0, 20) + '...' : originalText;
+
+  // Update input placeholder
+  input.placeholder = `Reply to "${truncatedText}"`;
+  input.focus();
+
+  // Highlight target sphere
+  const originalMaterial = targetSphere.material;
+  targetSphere.material = new THREE.MeshLambertMaterial({
+    color: 0xffd700, // Gold color to indicate reply target
+    emissive: 0x444400
+  });
+
+  // Store original material for restoration
+  targetSphere.userData.originalMaterial = originalMaterial;
+
+  console.log('📝 Entered reply mode for:', originalText);
+}
+
+// Exit reply mode
+function exitReplyMode() {
+  if (replyMode && replyTarget) {
+    // Restore original material
+    if (replyTarget.userData.originalMaterial) {
+      replyTarget.material = replyTarget.userData.originalMaterial;
+    }
+
+    console.log('❌ Exited reply mode');
+  }
+
+  replyMode = false;
+  replyTarget = null;
+  input.placeholder = "Enter message (up to 40 characters)";
+}
+
+// Handle click on empty space to exit reply mode
+function handleEmptySpaceClick(event) {
+  if (!replyMode) return;
+
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(spheres);
+
+  // If no spheres were clicked (empty space), exit reply mode
+  if (intersects.length === 0) {
+    exitReplyMode();
   }
 }
 
