@@ -307,12 +307,15 @@ function applyTheme() {
 // Store processed message IDs to prevent duplicates
 const processedMessageIds = new Set();
 
-// Initialize Socket.io with full hosting URL for TimeWeb Cloud
-const socket = io('https://appcreator-sudo-bubblechat-2ed8.twc1.net', {
-  transports: ['polling'], // Only polling transport
+// Initialize Socket.io with VDS server IP
+const socket = io('http://83.217.220.149:3000', {
+  transports: ['polling'], // polling transport for VDS
   timeout: 10000,
   forceNew: true,
-  path: '/socket.io' // Explicit path
+  path: '/socket.io',
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000
 });
 
 // Socket connection logging
