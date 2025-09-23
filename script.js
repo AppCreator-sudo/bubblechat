@@ -306,8 +306,8 @@ function applyTheme() {
 // Store processed message IDs to prevent duplicates
 const processedMessageIds = new Set();
 
-// Initialize Socket.io
-const socket = io();
+// Initialize Socket.io with explicit URL
+const socket = io(window.location.origin);
 
 // Socket connection logging
 socket.on('connect', () => {
