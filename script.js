@@ -815,7 +815,14 @@ function onMouseUp(event) {
   isPanning = false;
 
   // Check for empty space click to exit reply mode
-  if (replyMode) {
+  // But don't exit if clicking on form elements
+  const target = event.target;
+  const isFormElement = target.tagName === 'INPUT' ||
+                       target.tagName === 'BUTTON' ||
+                       target.tagName === 'TEXTAREA' ||
+                       target.closest('form');
+
+  if (replyMode && !isFormElement) {
     handleEmptySpaceClick(event);
   }
 }
@@ -846,21 +853,38 @@ function onMouseMove(event) {
     return;
   }
 
-  // Handle sphere interaction
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  // Handle sphere interaction (only when not panning)
+  if (!isPanning) {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(spheres);
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(spheres);
 
-  if (intersects.length > 0) {
-    const hoveredSphere = intersects[0].object;
-    const force = new THREE.Vector3();
-    force
-      .subVectors(intersects[0].point, hoveredSphere.position)
-      .normalize()
-      .multiplyScalar(0.2);
-    forces.set(hoveredSphere.uuid, force);
+    if (intersects.length > 0) {
+      const hoveredSphere = intersects[0].object;
+
+      // Only apply force to message spheres (not decorative ones)
+      if (hoveredSphere.userData.originalPosition?.isDecorative !== false) {
+        const existingForce = forces.get(hoveredSphere.uuid) || new THREE.Vector3();
+        const newForce = new THREE.Vector3();
+
+        // Calculate force direction from sphere center to mouse intersection point
+        newForce.subVectors(intersects[0].point, hoveredSphere.position).normalize();
+
+        // Add small force increment instead of setting absolute value
+        newForce.multiplyScalar(0.05); // Much smaller force increment
+        existingForce.add(newForce);
+
+        // Clamp maximum force to prevent excessive acceleration
+        const maxForce = 0.5;
+        if (existingForce.length() > maxForce) {
+          existingForce.normalize().multiplyScalar(maxForce);
+        }
+
+        forces.set(hoveredSphere.uuid, existingForce);
+      }
+    }
   }
 }
 
@@ -989,14 +1013,18 @@ function animate() {
       const breathingY = Math.sin(time + offset) * breathingAmplitude;
       const breathingZ = Math.cos(time + offset) * breathingAmplitude * 0.5;
 
-      // Apply forces and update positions
-      const force = forces.get(sphere.uuid);
-      if (force) {
-        sphere.position.add(force);
-        force.multiplyScalar(0.95);
+      // Apply forces and update positions (only for message spheres)
+      if (sphere.userData.originalPosition?.isDecorative !== false) {
+        const force = forces.get(sphere.uuid);
+        if (force) {
+          // Apply force with damping
+          sphere.position.add(force);
+          force.multiplyScalar(0.92); // Slightly more aggressive damping
 
-        if (force.length() < 0.01) {
-          forces.delete(sphere.uuid);
+          // Remove very small forces to prevent jitter
+          if (force.length() < 0.005) {
+            forces.delete(sphere.uuid);
+          }
         }
       }
 
