@@ -307,11 +307,12 @@ function applyTheme() {
 // Store processed message IDs to prevent duplicates
 const processedMessageIds = new Set();
 
-// Initialize Socket.io with polling only (TimeWeb Cloud may block WebSocket)
-const socket = io('/', {
+// Initialize Socket.io with full origin URL for TimeWeb Cloud
+const socket = io(window.location.origin, {
   transports: ['polling'], // Only polling transport
   timeout: 10000,
-  forceNew: true
+  forceNew: true,
+  path: '/socket.io' // Explicit path
 });
 
 // Socket connection logging
