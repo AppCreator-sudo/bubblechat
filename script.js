@@ -10,7 +10,8 @@ function createMessageSphere(text, lifetime = 15000) {
     let lines = [];
     for (let i = 0; i < limitedText.length; i += 10) {
       let line = limitedText.substring(i, i + 10);
-      if (i + 10 < limitedText.length && !line.endsWith(' ')) {
+      // Add hyphen only if there's more text AND the next character is not a space
+      if (i + 10 < limitedText.length && limitedText[i + 10] !== ' ') {
         line += '-';
       }
       lines.push(line);
