@@ -376,15 +376,17 @@ function applyTheme() {
 // Store processed message IDs to prevent duplicates
 const processedMessageIds = new Set();
 
-// Initialize Socket.io with localhost for local testing
-const socket = io('http://localhost:3000', {
-  transports: ['polling'], // polling transport
-  timeout: 10000,
+// Initialize Socket.io with VDS server for production
+const socket = io('http://83.217.220.149:3000', {
+  transports: ['polling', 'websocket'], // try polling first, fallback to websocket
+  timeout: 20000, // increased timeout for mobile
   forceNew: true,
   path: '/socket.io',
   reconnection: true,
-  reconnectionAttempts: 5,
-  reconnectionDelay: 1000
+  reconnectionAttempts: 10, // more attempts for mobile
+  reconnectionDelay: 1000,
+  upgrade: true, // allow upgrade to websocket
+  rememberUpgrade: true // remember successful upgrades
 });
 
 // Socket connection logging
