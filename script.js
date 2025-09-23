@@ -6,22 +6,69 @@ function createMessageSphere(text, lifetime = 15000) {
     const limitedText = text.substring(0, 40);
     console.log('Limited text:', limitedText);
 
-    // Pre-calculate lines: split text into lines of 10 characters each, max 4 lines, add hyphen for continuation
+    // Smart text wrapping: break at word boundaries when possible, hyphenate long words
     let lines = [];
-    for (let i = 0; i < limitedText.length; i += 10) {
-      let line = limitedText.substring(i, i + 10);
-      // Add hyphen only if there's more text AND the next character is not a space
-      if (i + 10 < limitedText.length && limitedText[i + 10] !== ' ') {
-        line += '-';
+    const maxLineLength = 10;
+    const words = limitedText.split(' ');
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const isLastWord = i === words.length - 1;
+
+      // If word is longer than max line length, hyphenate it
+      if (word.length > maxLineLength) {
+        // If we have content in current line, finish it first
+        if (currentLine.length > 0) {
+          lines.push(currentLine);
+          currentLine = '';
+        }
+
+        // Hyphenate long word
+        for (let j = 0; j < word.length; j += maxLineLength) {
+          let chunk = word.substring(j, j + maxLineLength);
+          // Add hyphen if not the last chunk and not ending with space
+          if (j + maxLineLength < word.length) {
+            chunk += '-';
+          }
+          lines.push(chunk);
+
+          // Limit to 4 lines total
+          if (lines.length >= 4) break;
+        }
+      } else {
+        // Check if word fits in current line
+        const potentialLine = currentLine + (currentLine.length > 0 ? ' ' : '') + word;
+
+        if (potentialLine.length <= maxLineLength) {
+          // Word fits, add it
+          currentLine = potentialLine;
+        } else {
+          // Word doesn't fit, start new line
+          if (currentLine.length > 0) {
+            lines.push(currentLine);
+          }
+          currentLine = word;
+        }
+
+        // If this is the last word and we have content, add the line
+        if (isLastWord && currentLine.length > 0) {
+          lines.push(currentLine);
+        }
       }
-      lines.push(line);
+
+      // Limit to 4 lines total
+      if (lines.length >= 4) break;
     }
+
+    // If we still have content in currentLine and didn't reach 4 lines, add it
+    if (currentLine.length > 0 && lines.length < 4) {
+      lines.push(currentLine);
+    }
+
+    // Ensure we don't exceed 4 lines
     if (lines.length > 4) {
-      lines.splice(4);
-      // Remove hyphen from the last line if truncated
-      if (lines.length > 0 && lines[lines.length - 1].endsWith('-')) {
-        lines[lines.length - 1] = lines[lines.length - 1].slice(0, -1);
-      }
+      lines = lines.slice(0, 4);
     }
     console.log('Lines:', lines);
 
