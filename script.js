@@ -14,7 +14,6 @@ function createMessageSphere(text, lifetime = 15000) {
 
     for (let i = 0; i < words.length; i++) {
       const word = words[i];
-      const isLastWord = i === words.length - 1;
 
       // If word is longer than max line length, hyphenate it
       if (word.length > maxLineLength) {
@@ -22,12 +21,14 @@ function createMessageSphere(text, lifetime = 15000) {
         if (currentLine.length > 0) {
           lines.push(currentLine);
           currentLine = '';
+          // Limit to 4 lines total
+          if (lines.length >= 4) break;
         }
 
         // Hyphenate long word
         for (let j = 0; j < word.length; j += maxLineLength) {
           let chunk = word.substring(j, j + maxLineLength);
-          // Add hyphen if not the last chunk and not ending with space
+          // Add hyphen if not the last chunk
           if (j + maxLineLength < word.length) {
             chunk += '-';
           }
@@ -47,13 +48,10 @@ function createMessageSphere(text, lifetime = 15000) {
           // Word doesn't fit, start new line
           if (currentLine.length > 0) {
             lines.push(currentLine);
+            // Limit to 4 lines total
+            if (lines.length >= 4) break;
           }
           currentLine = word;
-        }
-
-        // If this is the last word and we have content, add the line
-        if (isLastWord && currentLine.length > 0) {
-          lines.push(currentLine);
         }
       }
 
@@ -61,7 +59,7 @@ function createMessageSphere(text, lifetime = 15000) {
       if (lines.length >= 4) break;
     }
 
-    // If we still have content in currentLine and didn't reach 4 lines, add it
+    // Add remaining content in currentLine if we haven't reached 4 lines
     if (currentLine.length > 0 && lines.length < 4) {
       lines.push(currentLine);
     }
