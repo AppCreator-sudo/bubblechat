@@ -376,17 +376,15 @@ function applyTheme() {
 // Store processed message IDs to prevent duplicates
 const processedMessageIds = new Set();
 
-// Initialize Socket.io with VDS server for production
+// Initialize Socket.io with VDS server IP
 const socket = io('http://83.217.220.149:3000', {
-  transports: ['polling', 'websocket'], // try polling first, fallback to websocket
-  timeout: 20000, // increased timeout for mobile
+  transports: ['polling'], // Only polling transport
+  timeout: 10000,
   forceNew: true,
   path: '/socket.io',
   reconnection: true,
-  reconnectionAttempts: 10, // more attempts for mobile
-  reconnectionDelay: 1000,
-  upgrade: true, // allow upgrade to websocket
-  rememberUpgrade: true // remember successful upgrades
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000
 });
 
 // Socket connection logging
