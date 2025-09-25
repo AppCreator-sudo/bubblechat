@@ -1,7 +1,7 @@
 {
   "name": "dreams-multiplayer",
   "version": "1.1.0",
-  "description": "Multiplayer 3D visualization with spheres and messages",
+  "description": "Multiplayer 3D visualization with spheres and messages - Telegram Mini App compatible",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

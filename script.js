@@ -1,3 +1,92 @@
+// Telegram Mini App initialization
+let isTelegramMiniApp = false;
+let telegramWebApp = null;
+
+function initTelegramMiniApp() {
+  // Check if Telegram WebApp API is available
+  if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+    try {
+      telegramWebApp = Telegram.WebApp;
+      isTelegramMiniApp = true;
+
+      console.log('🎯 Telegram Mini App detected');
+
+      // Initialize Telegram WebApp
+      telegramWebApp.ready();
+      telegramWebApp.expand();
+
+      // Set header color to match theme
+      telegramWebApp.setHeaderColor('#fbfaff');
+
+      // Set background color
+      telegramWebApp.setBackgroundColor('#fbfaff');
+
+      // Enable closing confirmation
+      telegramWebApp.enableClosingConfirmation();
+
+      // Handle theme changes
+      telegramWebApp.onEvent('themeChanged', () => {
+        console.log('📱 Telegram theme changed');
+        // You can add theme synchronization here if needed
+      });
+
+      // Handle viewport changes
+      telegramWebApp.onEvent('viewportChanged', () => {
+        console.log('📱 Telegram viewport changed');
+        // Handle responsive adjustments if needed
+      });
+
+      // Log user info (for debugging)
+      if (telegramWebApp.initDataUnsafe?.user) {
+        console.log('👤 Telegram user:', telegramWebApp.initDataUnsafe.user);
+      }
+
+      // Adapt UI for Telegram
+      adaptUIForTelegram();
+
+      return true;
+    } catch (error) {
+      console.error('❌ Telegram Mini App initialization error:', error);
+      return false;
+    }
+  } else {
+    console.log('🌐 Regular web app (not Telegram)');
+    return false;
+  }
+}
+
+function adaptUIForTelegram() {
+  if (!isTelegramMiniApp) return;
+
+  // Hide theme switcher in Telegram (use Telegram's theme)
+  const themeSwitcher = document.getElementById('theme-switcher');
+  if (themeSwitcher) {
+    themeSwitcher.style.display = 'none';
+  }
+
+  // Adjust canvas size for Telegram viewport
+  const canvas = document.getElementById('webgl');
+  if (canvas) {
+    // Telegram Mini Apps have specific viewport handling
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+  }
+
+  // Adjust form positioning for mobile Telegram interface
+  const form = document.getElementById('message-form');
+  if (form) {
+    form.style.bottom = '20px'; // Add some padding from Telegram's UI
+  }
+
+  // Adjust title positioning
+  const title = document.querySelector('.main-txt');
+  if (title) {
+    title.style.top = '60px'; // Account for Telegram header
+  }
+
+  console.log('🎨 UI adapted for Telegram Mini App');
+}
+
 // Function to create message spheres (defined early for socket handlers)
 function createMessageSphere(text, lifetime = 15000) {
   try {
@@ -503,6 +592,9 @@ socket.on('syncMessages', (messages) => {
 
 // Initialize UI components
 window.addEventListener("load", () => {
+  // Initialize Telegram Mini App first
+  initTelegramMiniApp();
+
   initLoadingAnimation();
   createThemeSwitcher();
 });
